@@ -3349,7 +3349,7 @@ const server = http.createServer(async (req, res) => {
 
   if (pn === '/api/spotify/login') {
     const scope = 'streaming user-read-email user-read-private user-library-read user-library-modify user-read-playback-state user-modify-playback-state';
-    const redirect_uri = `http://localhost:${PORT}/api/spotify/callback`;
+    const redirect_uri = `http://127.0.0.1:${PORT}/api/spotify/callback`;
     const urlStr = 'https://accounts.spotify.com/authorize?' + new URLSearchParams({
       response_type: 'code',
       client_id: SPOTIFY_CLIENT_ID,
@@ -3365,7 +3365,7 @@ const server = http.createServer(async (req, res) => {
     const code = url.searchParams.get('code') || '';
     if (!code) { res.end('Missing code'); return; }
     try {
-      const redirect_uri = `http://localhost:${PORT}/api/spotify/callback`;
+      const redirect_uri = `http://127.0.0.1:${PORT}/api/spotify/callback`;
       const params = new URLSearchParams({ code: code, redirect_uri: redirect_uri, grant_type: 'authorization_code' });
       const authHeader = 'Basic ' + Buffer.from(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`).toString('base64');
       const resp = await fetch('https://accounts.spotify.com/api/token', {
