@@ -19519,7 +19519,7 @@ function renderQueuePanel(opts) {
   renderMiniQueuePanel({ scrollCurrent: miniQueueOpen });
 }
 async function refreshUserPlaylists(force) {
-  if (!loginStatus.loggedIn && !qqLoginStatus.loggedIn) {
+  if (!loginStatus.loggedIn && !qqLoginStatus.loggedIn && !spotifyLoginStatus.loggedIn) {
     resetPlaylistPanelRenderLimit();
     document.getElementById('pl-list').innerHTML = '<div style="text-align:center;padding:24px 0;color:rgba(255,255,255,.32);font-size:11.5px">登录后显示个人歌单</div>';
     var podcastListLoggedOut = document.getElementById('podcast-list');
@@ -19546,11 +19546,13 @@ async function refreshUserPlaylists(force) {
     var result = await Promise.all([
       loginStatus.loggedIn ? apiJson('/api/user/playlists') : Promise.resolve({ playlists: [] }),
       loginStatus.loggedIn ? apiJson('/api/podcast/my') : Promise.resolve({ collections: [], loggedIn: false }),
-      qqLoginStatus.loggedIn ? apiJson('/api/qq/user/playlists') : Promise.resolve({ playlists: [] })
+      qqLoginStatus.loggedIn ? apiJson('/api/qq/user/playlists') : Promise.resolve({ playlists: [] }),
+      spotifyLoginStatus.loggedIn ? apiJson('/api/spotify/playlists') : Promise.resolve({ playlists: [] })
     ]);
     var neteaseLists = (result[0].playlists || []).map(function(pl){ pl.provider = 'netease'; pl.source = 'netease'; return pl; });
     qqPlaylists = (result[2].playlists || []).map(function(pl){ pl.provider = 'qq'; pl.source = 'qq'; return pl; });
-    userPlaylists = neteaseLists.concat(qqPlaylists);
+    var spotifyLists = (result[3].playlists || []).map(function(pl){ pl.provider = 'spotify'; pl.source = 'spotify'; return pl; });
+    userPlaylists = neteaseLists.concat(qqPlaylists).concat(spotifyLists);
     myPodcastCollections = result[1].collections || [];
     var animatePanel = isPlaylistPanelVisibleForRender();
     renderUserPlaylistsList({ animate: animatePanel, reset: true });
@@ -19561,9 +19563,11 @@ async function refreshUserPlaylists(force) {
 }
 var playlistPanelDetailState = { key: '', loading: false, playlist: null, tracks: [], token: 0, renderLimit: PLAYLIST_DETAIL_INITIAL_RENDER };
 function playlistPanelKey(provider, id) {
+  if (provider === 'spotify') return 'spotify:' + String(id || '');
   return (provider === 'qq' ? 'qq' : 'netease') + ':' + String(id || '');
 }
 function playlistPanelProviderId(provider, id) {
+  if (provider === 'spotify') return 'spotify:' + id;
   return provider === 'qq' ? ('qq:' + id) : id;
 }
 function playlistPanelDetailHtml(pl, provider) {
@@ -19631,9 +19635,9 @@ function scrollPlaylistPanelDetailIntoView(key) {
 }
 async function openPlaylistPanelDetail(provider, pid, title) {
   if (!pid) return;
-  provider = provider === 'qq' ? 'qq' : 'netease';
+  if (provider !== 'qq' && provider !== 'spotify') provider = 'netease';
   var key = playlistPanelKey(provider, pid);
-  var pl = userPlaylists.find(function(item){ return playlistPanelKey(item.provider === 'qq' ? 'qq' : 'netease', item.id) === key; }) || { id: pid, provider: provider, name: title || '歌单详情' };
+  var pl = userPlaylists.find(function(item){ return playlistPanelKey(item.provider, item.id) === key; }) || { id: pid, provider: provider, name: title || '歌单详情' };
   if (playlistPanelDetailState.key === key && !playlistPanelDetailState.loading && playlistPanelDetailState.tracks.length) {
     playlistPanelDetailState.key = '';
     playlistPanelDetailState.tracks = [];
@@ -19647,9 +19651,10 @@ async function openPlaylistPanelDetail(provider, pid, title) {
   renderPlaylistPanelDetailState();
   scrollPlaylistPanelDetailIntoView(key);
   try {
-    var r = provider === 'qq'
-      ? await apiJson('/api/qq/playlist/tracks?id=' + encodeURIComponent(pid))
-      : await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(pid));
+    var r;
+    if (provider === 'spotify') r = await apiJson('/api/spotify/playlist/tracks?id=' + encodeURIComponent(pid));
+    else if (provider === 'qq') r = await apiJson('/api/qq/playlist/tracks?id=' + encodeURIComponent(pid));
+    else r = await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(pid));
     if (playlistPanelDetailState.token !== token) return;
     playlistPanelDetailState.loading = false;
     playlistPanelDetailState.tracks = (r && r.tracks || []).map(cloneSong);
@@ -19669,7 +19674,7 @@ function playPlaylistPanelDetail() {
   var st = playlistPanelDetailState;
   if (!st || !st.key) return;
   var parts = st.key.split(':');
-  var provider = parts[0] === 'qq' ? 'qq' : 'netease';
+  var provider = parts[0] === 'qq' ? 'qq' : (parts[0] === 'spotify' ? 'spotify' : 'netease');
   var pid = parts.slice(1).join(':');
   loadPlaylistIntoQueueById(playlistPanelProviderId(provider, pid), true, st.playlist && st.playlist.name || '');
 }
@@ -19739,9 +19744,9 @@ function renderUserPlaylistsList(opts) {
     return;
   }
   function playlistCardHtml(pl) {
-    var provider = pl.provider === 'qq' ? 'qq' : 'netease';
-    var providerLabel = provider === 'qq' ? 'QQ' : 'NE';
-    var thumb = pl.cover ? (provider === 'qq' ? pl.cover : (pl.cover + '?param=88y88')) : '';
+    var provider = pl.provider === 'spotify' ? 'spotify' : (pl.provider === 'qq' ? 'qq' : 'netease');
+    var providerLabel = provider === 'spotify' ? 'SP' : (provider === 'qq' ? 'QQ' : 'NE');
+    var thumb = pl.cover ? (provider === 'netease' ? (pl.cover + '?param=88y88') : pl.cover) : '';
     var imgTag = thumb ? '<img src="' + thumb + '" alt="" loading="lazy" decoding="async" onerror="this.style.opacity=0.2">' : '<div style="width:44px;height:44px;border-radius:8px;background:rgba(255,255,255,.06);flex-shrink:0"></div>';
     var key = playlistPanelKey(provider, pl.id);
     var expanded = playlistPanelDetailState.key === key ? ' expanded' : '';
@@ -19751,8 +19756,9 @@ function renderUserPlaylistsList(opts) {
     '</div>' + playlistPanelDetailHtml(pl, provider);
   }
   var groups = [
-    { key:'netease', label:'网易云歌单', items:userPlaylists.filter(function(pl){ return pl.provider !== 'qq'; }) },
-    { key:'qq', label:'QQ 音乐歌单', items:userPlaylists.filter(function(pl){ return pl.provider === 'qq'; }) }
+    { key:'netease', label:'网易云歌单', items:userPlaylists.filter(function(pl){ return pl.provider !== 'qq' && pl.provider !== 'spotify'; }) },
+    { key:'qq', label:'QQ 音乐歌单', items:userPlaylists.filter(function(pl){ return pl.provider === 'qq'; }) },
+    { key:'spotify', label:'Spotify', items:userPlaylists.filter(function(pl){ return pl.provider === 'spotify'; }) }
   ];
   if (opts.reset) resetPlaylistPanelRenderLimit();
   playlistPanelRenderLimit = Math.max(PLAYLIST_PANEL_BATCH_SIZE, Math.min(userPlaylists.length, playlistPanelRenderLimit || PLAYLIST_PANEL_BATCH_SIZE));
@@ -19943,11 +19949,12 @@ async function loadPlaylistIntoQueueById(id, autoplay, title) {
   updateEmptyHomeVisibility();
   showLoading();
   var qqPlaylistId = String(id || '').indexOf('qq:') === 0 ? String(id).slice(3) : '';
+  var spotifyPlaylistId = String(id || '').indexOf('spotify:') === 0 ? String(id).slice(8) : '';
   var r = null;
   try {
-    r = qqPlaylistId
-      ? await apiJson('/api/qq/playlist/tracks?id=' + encodeURIComponent(qqPlaylistId))
-      : await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(id));
+    if (spotifyPlaylistId) r = await apiJson('/api/spotify/playlist/tracks?id=' + encodeURIComponent(spotifyPlaylistId));
+    else if (qqPlaylistId) r = await apiJson('/api/qq/playlist/tracks?id=' + encodeURIComponent(qqPlaylistId));
+    else r = await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(id));
   } catch (e) {
     console.warn('[PlaylistLoadApi]', id, e);
     showToast('歌单加载失败');

@@ -3406,6 +3406,66 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (pn === '/api/spotify/playlists') {
+    try {
+      const tokenInfo = await getValidSpotifyToken();
+      if (!tokenInfo || !tokenInfo.access_token) { sendJSON(res, { playlists: [] }); return; }
+      const resp = await fetch('https://api.spotify.com/v1/me/playlists?limit=50', {
+        headers: { 'Authorization': 'Bearer ' + tokenInfo.access_token }
+      });
+      if (!resp.ok) throw new Error('Spotify API Error ' + resp.status);
+      const data = await resp.json();
+      const playlists = (data.items || []).map(pl => ({
+        id: pl.id,
+        name: pl.name,
+        cover: pl.images && pl.images[0] ? pl.images[0].url : '',
+        trackCount: pl.tracks ? pl.tracks.total : 0,
+        creator: pl.owner ? pl.owner.display_name : '',
+        provider: 'spotify',
+        source: 'spotify'
+      }));
+      sendJSON(res, { playlists, provider: 'spotify' });
+    } catch (err) {
+      console.error('[SpotifyPlaylists]', err);
+      sendJSON(res, { playlists: [], error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/spotify/playlist/tracks') {
+    try {
+      const pid = url.searchParams.get('id') || '';
+      if (!pid) { sendJSON(res, { tracks: [] }); return; }
+      const tokenInfo = await getValidSpotifyToken();
+      if (!tokenInfo || !tokenInfo.access_token) throw new Error('Not logged into Spotify');
+      const resp = await fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(pid)}/tracks?limit=100`, {
+        headers: { 'Authorization': 'Bearer ' + tokenInfo.access_token }
+      });
+      if (!resp.ok) throw new Error('Spotify API Error ' + resp.status);
+      const data = await resp.json();
+      const tracks = (data.items || []).filter(item => item && item.track && item.track.id).map(item => {
+        const t = item.track;
+        return {
+          id: t.id,
+          name: t.name,
+          artist: t.artists ? t.artists.map(a => a.name).join(', ') : '',
+          album: t.album ? t.album.name : '',
+          cover: t.album && t.album.images && t.album.images[0] ? t.album.images[0].url : '',
+          source: 'spotify',
+          type: 'spotify',
+          duration: t.duration_ms ? Math.floor(t.duration_ms / 1000) : 0,
+          durationMs: t.duration_ms || 0,
+          playable: true
+        };
+      });
+      sendJSON(res, { tracks, provider: 'spotify' });
+    } catch (err) {
+      console.error('[SpotifyPlaylistTracks]', err);
+      sendJSON(res, { tracks: [], error: err.message }, 500);
+    }
+    return;
+  }
+
   if (pn === '/api/update/download') {
     try {
       const info = await fetchLatestUpdateInfo();
