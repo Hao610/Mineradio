@@ -3447,7 +3447,7 @@ const server = http.createServer(async (req, res) => {
       if (!pid) { sendJSON(res, { tracks: [] }); return; }
       const tokenInfo = await getValidSpotifyToken();
       if (!tokenInfo || !tokenInfo.access_token) throw new Error('Not logged into Spotify');
-      const resp = await fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(pid)}/tracks?limit=100`, {
+      const resp = await fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(pid)}/items?limit=100`, {
         headers: { 'Authorization': 'Bearer ' + tokenInfo.access_token }
       });
       if (!resp.ok) throw new Error('Spotify API Error ' + resp.status);
