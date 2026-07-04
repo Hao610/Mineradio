@@ -3294,10 +3294,15 @@ async function getValidSpotifyToken() {
 async function handleSpotifySearch(kw, limit) {
   const tokenInfo = await getValidSpotifyToken();
   if (!tokenInfo || !tokenInfo.access_token) throw new Error('Not logged into Spotify');
+  limit = Math.min(parseInt(limit) || 10, 10);
   const resp = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(kw)}&type=track&limit=${limit}`, {
     headers: { 'Authorization': 'Bearer ' + tokenInfo.access_token }
   });
-  if (!resp.ok) throw new Error('Spotify API Error ' + resp.status);
+  if (!resp.ok) {
+    const errText = await resp.text();
+    console.error('[SpotifySearch Detail]', errText);
+    throw new Error(`Spotify API Error ${resp.status}: ${errText}`);
+  }
   const data = await resp.json();
   return (data.tracks && data.tracks.items ? data.tracks.items : []).map(t => ({
     id: t.id,
