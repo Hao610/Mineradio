@@ -19710,6 +19710,7 @@ function playPlaylistPanelDetailTrack(index) {
   if (!tracks[index]) return;
   playQueue = tracks.map(cloneSong);
   currentIdx = index;
+  queueRenderLimit = Math.max(QUEUE_RENDER_BATCH, index + 50);
   safeRenderQueuePanel('playlist-panel-detail');
   safeSwitchPlaylistTab('queue', 'playlist-panel-detail');
   safeShelfRebuild('playlist-panel-detail', true);
@@ -19756,13 +19757,20 @@ function bindPlaylistPanelLazyRender() {
   var panel = document.getElementById('playlist-panel');
   if (!panel || playlistPanelLazyBound) return;
   playlistPanelLazyBound = true;
+  var _queueLazyBusy = false;
   panel.addEventListener('scroll', function(){
     maybeGrowPlaylistPanelDetailRenderLimit();
-    if (queueViewTab === 'queue' && queueRenderLimit < playQueue.length && panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 240) {
+    if (queueViewTab === 'queue' && !_queueLazyBusy && queueRenderLimit < playQueue.length && panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 300) {
+      _queueLazyBusy = true;
       queueRenderLimit += QUEUE_RENDER_BATCH;
       var keepTop = panel.scrollTop;
-      renderQueuePanel({ animate: false });
-      panel.scrollTop = keepTop;
+      requestAnimationFrame(function() {
+        renderQueuePanel({ animate: false });
+        requestAnimationFrame(function() {
+          panel.scrollTop = keepTop;
+          _queueLazyBusy = false;
+        });
+      });
     }
     if (queueViewTab !== 'playlists' || playlistPanelRenderLimit >= userPlaylists.length) return;
     if (panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 180) growPlaylistPanelRenderLimit();
@@ -20001,6 +20009,7 @@ async function loadPlaylistIntoQueueById(id, autoplay, title) {
     if (!qqPlaylistId && isLikedPlaylistContext(id, title, r.playlist)) markSongsLiked(playQueue, true);
     if (!qqPlaylistId) syncLikeStatusForSongs(playQueue);
     currentIdx = 0;
+    queueRenderLimit = QUEUE_RENDER_BATCH;
     safeRenderQueuePanel('playlist-load');
     safeSwitchPlaylistTab('queue', 'playlist-load');
     safeShelfRebuild('playlist-load', true);
