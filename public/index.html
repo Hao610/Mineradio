@@ -18562,6 +18562,12 @@ async function playQueueAt(idx, opts) {
           hideLoading();
         });
       });
+      markPlayPhase('visual-prep');
+      try {
+        if (typeof prepareEmilyForTrackSwitch === 'function') prepareEmilyForTrackSwitch(song);
+      } catch(e){}
+      markPlayPhase('lyrics-load');
+      loadSongLyrics(song, token, false);
       return;
     }
 
