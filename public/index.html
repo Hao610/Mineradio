@@ -18527,7 +18527,11 @@ async function playQueueAt(idx, opts) {
     var isSpotifyPlayback = song.source === 'spotify' || song.type === 'spotify';
     if (isSpotifyPlayback) {
       if (!spotifyPlayer || !spotifyDeviceId) {
-        showToast('请先登录 Spotify 并等待加载完成');
+        if (spotifyLoginStatus && spotifyLoginStatus.loggedIn && spotifyPlayer) {
+          showToast('Spotify 播放引擎未就绪 (可能是非 Premium 账号被限制)');
+        } else {
+          showToast('请先登录 Spotify 并等待加载完成');
+        }
         return;
       }
       apiJson('/api/spotify/status').then(function(r) {
@@ -20015,11 +20019,23 @@ function playbackDurationFromSong(song) {
   if (!song) return 0;
   return normalizePlaybackDurationSeconds(song.duration || song.durationMs || song.dt || 0);
 }
+var spotifyPlaybackState = null;
 function getPlaybackDurationSeconds() {
+  if (playQueue[currentIdx] && (playQueue[currentIdx].source === 'spotify' || playQueue[currentIdx].type === 'spotify')) {
+    if (spotifyPlaybackState && spotifyPlaybackState.duration) return spotifyPlaybackState.duration / 1000;
+  }
   if (audio && isFinite(audio.duration) && audio.duration > 0) return audio.duration;
   return playbackDurationFromSong(currentCoverSong());
 }
 function getPlaybackCurrentSeconds() {
+  if (playQueue[currentIdx] && (playQueue[currentIdx].source === 'spotify' || playQueue[currentIdx].type === 'spotify')) {
+    if (spotifyPlaybackState) {
+      var ms = spotifyPlaybackState.position;
+      if (!spotifyPlaybackState.paused) ms += (performance.now() - spotifyPlaybackState.updatedAt);
+      return Math.max(0, ms / 1000);
+    }
+    return 0;
+  }
   return audio && isFinite(audio.currentTime) && audio.currentTime > 0 ? audio.currentTime : 0;
 }
 function setProgressVisual(percent) {
@@ -23934,6 +23950,12 @@ window.onSpotifyWebPlaybackSDKReady = function() {
       spotifyPlayer.addListener('player_state_changed', function(state) {
         if (!state) return;
         isSpotifyPlaying = !state.paused;
+        spotifyPlaybackState = {
+          position: state.position,
+          duration: state.duration,
+          paused: state.paused,
+          updatedAt: performance.now()
+        };
       });
       spotifyPlayer.connect();
     }
