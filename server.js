@@ -63,7 +63,7 @@ try {
       if (match) {
         const key = match[1];
         let val = match[2] || '';
-        val = val.replace(/^['"]|['"]$/g, '').trim();
+        val = val.trim().replace(/^['"]|['"]$/g, '');
         process.env[key] = val;
       }
     });
