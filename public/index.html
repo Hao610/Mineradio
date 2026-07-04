@@ -23901,6 +23901,7 @@ window.onSpotifyWebPlaybackSDKReady = function() {
         volume: 0.8
       });
       spotifyLoginStatus.loggedIn = true;
+      refreshUserPlaylists(true);
       spotifyPlayer.addListener('ready', function(obj) {
         spotifyDeviceId = obj.device_id;
         console.log('Spotify Ready with Device ID', obj.device_id);
