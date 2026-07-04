@@ -2808,6 +2808,8 @@ var miniQueueRenderSeq = 0, queueRenderSeq = 0, playlistRenderSeq = 0;
 var queuePanelDirty = false;
 var PLAYLIST_PANEL_BATCH_SIZE = 28;
 var playlistPanelRenderLimit = PLAYLIST_PANEL_BATCH_SIZE;
+var QUEUE_RENDER_BATCH = 150;
+var queueRenderLimit = QUEUE_RENDER_BATCH;
 var playlistPanelLazyBound = false;
 var PLAYLIST_DETAIL_INITIAL_RENDER = 64;
 var PLAYLIST_DETAIL_BATCH_SIZE = 48;
@@ -19524,7 +19526,9 @@ function renderQueuePanel(opts) {
     if (panel && (panel.classList.contains('show') || panel.classList.contains('peek')) && queueViewTab === 'queue') switchPlaylistTab('playlists');
     return;
   }
-  $ql.innerHTML = playQueue.map(function(song, i){
+  queueRenderLimit = Math.max(queueRenderLimit || QUEUE_RENDER_BATCH, (currentIdx || 0) + 50);
+  var renderSongs = playQueue.slice(0, queueRenderLimit);
+  $ql.innerHTML = renderSongs.map(function(song, i){
     var thumb = songCoverSrc(song, 60);
     var imgTag = thumb ? '<img src="' + thumb + '" alt="" loading="lazy" decoding="async" onerror="this.style.opacity=0.2">' : '<div style="width:38px;height:38px;border-radius:6px;background:rgba(255,255,255,.06);flex-shrink:0"></div>';
     return '<div class="queue-item' + (i === currentIdx ? ' now' : '') + '" onclick="playQueueAt(' + i + ')">' +
@@ -19754,6 +19758,12 @@ function bindPlaylistPanelLazyRender() {
   playlistPanelLazyBound = true;
   panel.addEventListener('scroll', function(){
     maybeGrowPlaylistPanelDetailRenderLimit();
+    if (queueViewTab === 'queue' && queueRenderLimit < playQueue.length && panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 240) {
+      queueRenderLimit += QUEUE_RENDER_BATCH;
+      var keepTop = panel.scrollTop;
+      renderQueuePanel({ animate: false });
+      panel.scrollTop = keepTop;
+    }
     if (queueViewTab !== 'playlists' || playlistPanelRenderLimit >= userPlaylists.length) return;
     if (panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 180) growPlaylistPanelRenderLimit();
   }, { passive: true });
