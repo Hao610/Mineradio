@@ -3348,7 +3348,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pn === '/api/spotify/login') {
-    const scope = 'streaming user-read-email user-read-private user-library-read user-library-modify user-read-playback-state user-modify-playback-state';
+    const scope = 'streaming user-read-email user-read-private user-library-read user-library-modify user-read-playback-state user-modify-playback-state playlist-read-private playlist-read-collaborative';
     const redirect_uri = `http://127.0.0.1:${PORT}/api/spotify/callback`;
     const urlStr = 'https://accounts.spotify.com/authorize?' + new URLSearchParams({
       response_type: 'code',
