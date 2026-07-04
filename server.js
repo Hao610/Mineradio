@@ -3447,13 +3447,16 @@ const server = http.createServer(async (req, res) => {
       if (!pid) { sendJSON(res, { tracks: [] }); return; }
       const tokenInfo = await getValidSpotifyToken();
       if (!tokenInfo || !tokenInfo.access_token) throw new Error('Not logged into Spotify');
-      const resp = await fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(pid)}/items?limit=100`, {
+      const resp = await fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(pid)}/items?limit=100&additional_types=track`, {
         headers: { 'Authorization': 'Bearer ' + tokenInfo.access_token }
       });
-      if (!resp.ok) throw new Error('Spotify API Error ' + resp.status);
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`Spotify API Error ${resp.status}: ${errText}`);
+      }
       const data = await resp.json();
-      const tracks = (data.items || []).filter(item => item && item.track && item.track.id).map(item => {
-        const t = item.track;
+      const tracks = (data.items || []).filter(entry => entry && (entry.item || entry.track) && (entry.item || entry.track).id).map(entry => {
+        const t = entry.item || entry.track;
         return {
           id: t.id,
           name: t.name,
