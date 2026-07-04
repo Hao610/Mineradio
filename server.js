@@ -3393,6 +3393,12 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (pn === '/api/spotify/logout') {
+    try { fs.unlinkSync(SPOTIFY_TOKEN_FILE); } catch(e){}
+    sendJSON(res, { ok: true });
+    return;
+  }
+
   if (pn === '/api/spotify/search') {
     try {
       const kw = url.searchParams.get('keywords') || '';
@@ -3413,7 +3419,10 @@ const server = http.createServer(async (req, res) => {
       const resp = await fetch('https://api.spotify.com/v1/me/playlists?limit=50', {
         headers: { 'Authorization': 'Bearer ' + tokenInfo.access_token }
       });
-      if (!resp.ok) throw new Error('Spotify API Error ' + resp.status);
+      if (!resp.ok) {
+        if (resp.status === 403) { try { fs.unlinkSync(SPOTIFY_TOKEN_FILE); } catch(e){} }
+        throw new Error('Spotify API Error ' + resp.status);
+      }
       const data = await resp.json();
       const playlists = (data.items || []).map(pl => ({
         id: pl.id,

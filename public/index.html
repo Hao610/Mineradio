@@ -23938,6 +23938,20 @@ function openProviderLogin(provider) {
   showLoginModal({ provider: provider });
 }
 async function logoutActiveAccount() {
+  if (activeAccountProvider === 'spotify') {
+    try { await apiJson('/api/spotify/logout'); } catch (e) {}
+    if (typeof spotifyPlayer !== 'undefined' && spotifyPlayer) {
+      try { spotifyPlayer.disconnect(); } catch(e){}
+    }
+    spotifyLoginStatus = { provider: 'spotify', loggedIn: false };
+    if (!hasPlatformLogin('netease') && !hasPlatformLogin('qq')) dualAccountMode = false;
+    activeAccountProvider = firstLoggedProvider();
+    refreshUserPlaylists(true);
+    closeUserModal();
+    renderUserBtn();
+    showToast('已注销 Spotify');
+    return;
+  }
   if (activeAccountProvider === 'qq') {
     try { await apiJson('/api/qq/logout'); } catch (e) {}
     try {
