@@ -18536,12 +18536,25 @@ async function playQueueAt(idx, opts) {
           method: 'PUT',
           body: JSON.stringify({ uris: ['spotify:track:' + song.id] }),
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + r.token }
-        }).then(function(){
+        }).then(async function(resp){
+          if (!resp.ok) {
+            var errText = '';
+            try { var j = await resp.json(); errText = j.error && j.error.message ? j.error.message : ''; } catch(e){}
+            if (resp.status === 403) showToast('Spotify 播放失败 (可能需要 Premium): ' + errText);
+            else if (resp.status === 404) showToast('Spotify 播放失败 (找不到设备): ' + errText);
+            else showToast('Spotify 播放失败: ' + resp.status + ' ' + errText);
+            setPlayIcon(false);
+            hideLoading();
+            return;
+          }
           if (audio) { audio.pause(); audio.src = ''; }
           playing = true;
           setPlayIcon(true);
           if (typeof forceLoadingSettled === 'function') forceLoadingSettled('spotify');
           if (typeof tweenParticleAlpha === 'function') tweenParticleAlpha(uniforms.uAlpha.value || 0, 0.05, 300);
+          hideLoading();
+        }).catch(function(e){
+          showToast('Spotify 播放请求异常');
           hideLoading();
         });
       });
